@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>小区</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+			body {
+  				font-family: Monospace;
+  				background-color: #000;
+  				color: #fff;
+  				margin: 0px;
+  				overflow: hidden;
+			}
+		</style>
+    <script src="lib/jquery.mini.js"></script>
+    <script src="lib/three.mini.js"></script>
+    <script src="lib/RectAreaLightUniformsLib.js"></script>
+    <script src="lib/GLTFLoader.js"></script>
+		<script src="lib/OrbitControls.js"></script>
+  </head>
+  <body>
+    <div id="WebGL-output"></div>
+
+    <script type="text/javascript">
+      function init(){
+        var initCameraY = true, initCameraZ = true;      //定义初始动画
+        var scene = new THREE.Scene();                   //定义场景
+        var camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 10000);    //定义透视相机
+        var webGLRenderer = new THREE.WebGLRenderer();    //定义场景渲染器
+        webGLRenderer.setSize(window.innerWidth, window.innerHeight);  //定义场景渲染器的大小
+
+        //添加坐标轴帮助
+        var axes = new THREE.AxisHelper(1000);
+          axes.position.y = 200;
+          scene.add(axes);
+
+        //设置相机其实位置
+        camera.position.z = 50;
+        camera.position.x = -100;
+        camera.position.y = 1500;
+        //设置相机凝视方向
+        camera.lookAt(new THREE.Vector3(0,0,0));
+
+        //定义场景漫游器
+        var orbit = new THREE.OrbitControls(camera);
+          orbit.minDistance = 70;  //设置漫游器离地最小间距
+          orbit.maxDistance = 1500;  //设置漫游器离地最大间距
+          orbit.maxPolarAngle = 0.9; //设置漫游器最大倾仰角
+
+        //设置环境灯光效果
+        var ambient = new THREE.AmbientLight('#333'); //设置场景灯光
+        // var ambient = new THREE.AmbientLight('#fff');
+          scene.add(ambient);
+
+        //设置聚光灯照射目标位置
+        var targetObject = new THREE.Object3D();
+          targetObject.position.set(-100,0,-100);
+          scene.add(targetObject);
+
+        // 设置场景聚光灯，实现周围阴影效果
+        var spotLight = new THREE.SpotLight('#fff7e2');
+          spotLight.position.set(-350,600,-700);    //设置聚光灯光源位置
+					spotLight.angle = 0.25;               //设置光线投射夹角
+          spotLight.intensity = 2;              //设置光线强度
+          spotLight.penumbra = 0.3;             //设置光线周围阴影渐变强度
+          // spotLight.decay = 5;                  //设置光线衰减程度
+          spotLight.target = targetObject;
+          scene.add(spotLight);
+
+        // 显示光线帮助辅助线
+        var lightHelper = new THREE.SpotLightHelper( spotLight );
+  				scene.add( lightHelper );
+
+        //将场景中的事物渲染到html Dom中
+        $('#WebGL-output').append(webGLRenderer.domElement);
+
+        //构建创建材质对象方法
+        function createMesh(geom, imageFile) {
+				   var texture = THREE.ImageUtils.loadTexture(imageFile);
+				   var mat = new THREE.MeshPhongMaterial();
+				   mat.map = texture;
+					 mat.transparent = true;
+					 mat.opacity = 0.8;
+					 mat.depthTest = true;
+				   var mesh = new THREE.Mesh(geom, mat);
+				   return mesh;
+				}
+
+        //设置背景对象
+        var planeGeometry = createMesh(new THREE.PlaneGeometry(10000, 10000), "source/qinghuiyuan.jpg");
+
+        // 调整背景位置并加入场景
+        planeGeometry.rotation.x = -1.6;
+				planeGeometry.position.x = 800;
+				// planeGeometry.position.z = 300;
+        scene.add(planeGeometry);
+
+        //改变窗口大小，重置场景
+        window.addEventListener( 'resize', onWindowResize, false );
+				function onWindowResize() {
+					windowHalfX = window.innerWidth / 2;
+					windowHalfY = window.innerHeight / 2;
+					camera.aspect = window.innerWidth / window.innerHeight;
+					camera.updateProjectionMatrix();
+					webGLRenderer.setSize( window.innerWidth, window.innerHeight );
+				}
+
+        // 读取json文件
+        var Lod_path;
+        $.ajaxSettings.async = false;
+        $.getJSON("gltf/data.json", function(data) {
+          Lod_path = data;
+        });
+        //加载瓦片
+        var objectAll = [];      //定义所有LOD容器
+				var gltfLoader = new THREE.GLTFLoader();
+
+				Lod_path.forEach(function(item,index){
+					var objectLayer = [];
+					item.path.forEach(function(object,key){
+						gltfLoader.load(object,function(gltf){
+							gltf.scene.rotation.x = -1.6;
+              gltf.scene.rotation.z = -1.1;
+	            gltf.scene.position.y = -20;
+							// gltf.scene.position.x = -1100;
+							// gltf.scene.position.z = 600;
+			        scene.add(gltf.scene);
+							objectLayer.push(gltf.scene);
+						})
+					})
+					objectAll.push({objectLayer:objectLayer, distance: item.distance})
+				})
+
+        render();
+        var ang = Math.PI/2 ;
+        function render() {
+          orbit.update();
+
+          if(initCameraY){
+						camera.position.y -=5;
+						if(camera.position.y < 300) initCameraY = false;
+					}
+
+					if(initCameraZ && camera.position.y < 300){
+						camera.position.z +=2;
+						if(camera.position.z > 250) initCameraZ = false;
+					}
+
+					if(!initCameraZ){
+						if((ang - 5/2*Math.PI)>0){
+							if(camera.position.x > -169){
+								camera.position.x -=1;
+								camera.lookAt(camera.position.x, 0, 0);
+							}else {
+								camera.lookAt(-170, 0, 0);
+								ang += 1/100 ;
+								camera.position.x = 250*Math.cos( ang ) - 170;//* 800;
+								camera.position.z = 250*Math.sin( ang );//* 800;
+							}
+            }else {
+								ang += 1/100 ;
+								camera.position.x = 250*Math.cos( ang );//* 800;
+								camera.position.z = 250*Math.sin( ang );//* 800;
+							}
+						}
+
+						if(objectAll.length > 1){
+              console.log(camera.position.y);
+							var camera_distan = camera.position.y;
+							objectAll[0].objectLayer.forEach(function(item,key){
+								item.visible = true;
+							})
+
+							for(var i = 0; i < objectAll.length; i ++){
+
+								objectAll.forEach(function(object,key){
+									object.objectLayer.forEach(function(item,key){
+										item.visible = false;
+									})
+								})
+
+								if(camera_distan >= objectAll[i].distance){
+									objectAll[i].objectLayer.forEach(function(item,key){
+										item.visible = true;
+									})
+
+								}else {
+									break;
+								}
+							}
+
+							objectAll.forEach(function(object,index){
+								if(object.distance > camera_distan){
+									object.objectLayer.forEach(function(item,key){
+										item.visible = false;
+									})
+								}else {
+									object.objectLayer.forEach(function(item,key){
+										item.visible = true;
+									})
+								}
+							})
+						}
+
+            requestAnimationFrame(render);
+            webGLRenderer.render(scene, camera);
+        }
+      }
+      window.onload = init();
+    </script>
+  </body>
+</html>
