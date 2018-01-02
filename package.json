@@ -1,0 +1,11 @@
+{
+  "name": "yueji-park",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "zhangl <zhanglin@airspace.cn>",
+  "license": "MIT",
+  "scripts": {
+    "server":"http-server . -p 8000",
+    "deploy-dev": "scp -r *  work@101.200.193.94:/data/view3d"
+  }
+}
